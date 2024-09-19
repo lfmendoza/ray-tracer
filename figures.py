@@ -37,7 +37,7 @@ class Sphere(Shape):
             return None
         
         # P = orig + dir * t0
-        P = np.sum(orig, np.multiply(dir, t0))
+        P = np.add(orig, np.multiply(dir, t0))
         normal = np.subtract(P, self.position)
         normal /= np.linalg.norm(normal)
         

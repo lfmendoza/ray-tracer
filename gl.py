@@ -152,31 +152,29 @@ class RendererRT(object):
 		random.shuffle(indices)
 		
 		for i, j in indices:
+
 			x = i + self.vpX
 			y = j + self.vpY
 
-		if 0 <= x < self.width and 0 <= y < self.height:
-			for x in range(self.vpX, self.vpX + self.vpWidth):
-				for y in range(self.vpY, self.vpY + self.vpHeight):
-					if 0<=x<self.width and 0<=y<self.height:
-						# Coordenadas normalizadas
-						# Que van de -1 a 1
+			if 0 <= x < self.width and 0 <= y < self.height:
+				# Coordenadas normalizadas
+				# Que van de -1 a 1
 
-						pX = ((x + 0.5 - self.vpX) / self.vpWidth) * 2 - 1
-						pY = ((y + 0.5 - self.vpY) / self.vpHeight) * 2 - 1
-						
-						pX *= self.rightEdge
-						pY *= self.topEdge
-						
-						dir = [pX, pY, -self.nearPlane]
-						dir /= np.linalg.norm(dir)
+				pX = ((x + 0.5 - self.vpX) / self.vpWidth) * 2 - 1
+				pY = ((y + 0.5 - self.vpY) / self.vpHeight) * 2 - 1
+				
+				pX *= self.rightEdge
+				pY *= self.topEdge
+				
+				dir = [pX, pY, -self.nearPlane]
+				dir /= np.linalg.norm(dir)
 
-						intersect = self.glCastRay(self.camera.translate, dir)
-						
-						if intersect != None:
-							color = intersect.obj.material.GetSurfaceColor(intersect, self)
-							self.glPoint(x, y, color)
-							pygame.display.flip()
+				intersect = self.glCastRay(self.camera.translate, dir)
+				
+				if intersect != None:
+					color = intersect.obj.material.GetSurfaceColor(intersect, self)
+					self.glPoint(x, y, color)
+					pygame.display.flip()
 					
 
 					
