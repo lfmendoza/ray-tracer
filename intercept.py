@@ -1,5 +1,5 @@
 class Intercept(object):
-    def __init__(self, point, normal, distance, obj) -> None:
+    def __init__(self, point, normal, distance, obj):
         self.point = point
         self.normal = normal
         self.distance = distance

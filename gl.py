@@ -169,10 +169,10 @@ class RendererRT(object):
 				dir = [pX, pY, -self.nearPlane]
 				dir /= np.linalg.norm(dir)
 
-				intersect = self.glCastRay(self.camera.translate, dir)
+				intercept = self.glCastRay(self.camera.translate, dir)
 				
-				if intersect != None:
-					color = intersect.obj.material.GetSurfaceColor(intersect, self)
+				if intercept != None:
+					color = intercept.obj.material.GetSurfaceColor(intercept, self)
 					self.glPoint(x, y, color)
 					pygame.display.flip()
 					
