@@ -1,6 +1,8 @@
 class Intercept(object):
-    def __init__(self, point, normal, distance, obj):
+    def __init__(self, point, normal, distance, texCoords, rayDirection, obj):
         self.point = point
         self.normal = normal
         self.distance = distance
+        self.textCoords = texCoords
+        self.rayDirection = rayDirection
         self.obj = obj
