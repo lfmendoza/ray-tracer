@@ -30,10 +30,19 @@ class Material(object):
 
         for light in renderer.lights:
             shadowIntercept = None
+            lightDir = None
 
             if light.lightType == "Directional":
                 lightDir = [-i for i in light.direction]
                 shadowIntercept = renderer.glCastRay(intercept.point, lightDir, intercept.obj)
+            elif light.lightType == "Point":
+                lightDir = np.subtract(light.position, intercept.point)
+                R = np.linalg.norm(lightDir)
+                lightDir /= R
+                shadowIntercept = renderer.glCastRay(intercept.point, lightDir, intercept.obj)
+                if shadowIntercept:
+                    if shadowIntercept.distance >= R:
+                        shadowIntercept = None
 
             if shadowIntercept == None:
                 lightColor = [(lightColor[i] + light.GetSpecularColor(intercept, renderer.camera.translate)[i]) for i in range(3)]
