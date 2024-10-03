@@ -3,6 +3,6 @@ class Intercept(object):
         self.point = point
         self.normal = normal
         self.distance = distance
-        self.textCoords = texCoords
+        self.texCoords = texCoords
         self.rayDirection = rayDirection
         self.obj = obj

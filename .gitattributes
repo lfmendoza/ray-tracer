@@ -1,0 +1,1 @@
+textures/*.bmp filter=lfs diff=lfs merge=lfs -text
