@@ -19,7 +19,7 @@ rt = RendererRT(screen)
 
 # Intentar cargar texturas, si no están disponibles, se usarán colores de respaldo
 try:
-    floor_texture = Texture("textures/marble_floor.bmp")
+    floor_texture = Texture("textures/wood_floor.bmp")
 except:
     floor_texture = None
 
@@ -33,7 +33,7 @@ try:
 except:
     painting_texture = None
 
-# # Definir materiales con colores de respaldo
+# Definir materiales con colores de respaldo
 marble_color = [0.9, 0.9, 0.9]  # Blanco brillante para mármol
 wall_color = [0.8, 0.8, 0.8]    # Gris claro para paredes
 wood_color = [0.6, 0.3, 0.1]    # Marrón para madera
@@ -42,7 +42,7 @@ stone_color = [0.5, 0.5, 0.5]   # Gris oscuro para piedra
 leaf_color = [0.2, 0.5, 0.2]    # Verde para hojas
 glass_color = [0.9, 0.9, 1.0]   # Casi blanco para vidrio
 
-# # Materiales
+# Materiales
 bricks = Material(diffuse=[1.0,0.2,0.2], spec=128, ks=0.25)
 grass = Material(diffuse=[0.2,1.0,0.2], spec=64, ks=0.2)
 marble = Material(texture=floor_texture, diffuse=marble_color, spec=64, ks=0.5)
@@ -54,7 +54,6 @@ wood = Material(diffuse=wood_color, spec=32, ks=0.2)
 metal = Material(diffuse=metal_color, spec=64, ks=0.8)
 stone = Material(diffuse=stone_color, spec=16, ks=0.1)
 leaf_material = Material(diffuse=leaf_color, spec=8, ks=0.1)
-
 
 # Dimensiones de la galería
 room_width = 20
@@ -70,7 +69,7 @@ back_wall = Plane(position=[0, 0, -room_depth], normal=[0, 0, 1], material=wall_
 front_wall = Plane(position=[0, 0, 0], normal=[0, 0, -1], material=wall_material)
 
 # Agregar los planos a la escena
-rt.scene.extend([left_wall, right_wall, floor, ceiling, back_wall, front_wall])
+rt.scene.extend([left_wall, right_wall, floor, ceiling, back_wall])
 
 # Crear las figuras y colocarlas en la escena
 
