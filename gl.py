@@ -78,10 +78,12 @@ class RendererRT(object):
         if self.envMap:
             x = (atan2(dir[2], dir[0]) / (2 * pi) + 0.5)
             y = acos(-dir[1]) / pi
-
-            return self.envMap.getColor(x, y)
-
-        return self.clearColor
+            color = self.envMap.getColor(x, y)
+            if color is None:
+                color = self.clearColor
+        else:
+            color = self.clearColor
+        return color
 
     def glPoint(self, x, y, color=None):
         x = int(round(x))

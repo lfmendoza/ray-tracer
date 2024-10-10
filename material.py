@@ -1,9 +1,10 @@
-from MathLib import reflectVector, dot, sub, add, mul, norm, length, div
+from MathLib import reflectVector, dot, sub, add, mul, div, length
 from refractionFunctions import *
 
 OPAQUE = 0
 REFLECTIVE = 1
 TRANSPARENT = 2
+EMISSIVE = 3
 
 class Material(object):
     def __init__(self, diffuse=[0, 0, 0], spec=1.0, ks=0.0, ior=1.0, texture=None, matType=OPAQUE):
@@ -15,6 +16,10 @@ class Material(object):
         self.matType = matType
 
     def GetSurfaceColor(self, intercept, renderer, recursion=0):
+        if self.matType == EMISSIVE:
+            # Los materiales emisivos devuelven su color difuso sin afectación de luces
+            return self.diffuse
+
         lightColor = [0, 0, 0]
         reflectColor = [0, 0, 0]
         refractColor = [0, 0, 0]
@@ -38,11 +43,28 @@ class Material(object):
                 shadowIntercept = renderer.glCastRay(intercept.point, lightDir, intercept.obj)
                 if shadowIntercept and shadowIntercept.distance >= R:
                     shadowIntercept = None
+            elif light.lightType == "Ambient":
+                pass  # La luz ambiental no crea sombras
+            elif light.lightType == "Spot":
+                lightDir = sub(light.position, intercept.point)
+                R = length(lightDir)
+                lightDir = div(lightDir, R)
+                theta = acos(dot(lightDir, mul(light.direction, -1))) * (180 / pi)
+                if theta < light.innerAngle:
+                    intensity = light.intensity
+                elif theta < light.outerAngle:
+                    intensity = light.intensity * (1 - (theta - light.innerAngle) / (light.outerAngle - light.innerAngle))
+                else:
+                    intensity = 0
+                if intensity > 0:
+                    shadowIntercept = renderer.glCastRay(intercept.point, lightDir, intercept.obj)
+                    if shadowIntercept and shadowIntercept.distance >= R:
+                        shadowIntercept = None
+                else:
+                    continue
 
             if shadowIntercept is None:
-                lightColor = [lightColor[i] + light.GetSpecularColor(intercept, renderer.camera.translate)[i] for i in range(3)]
-                if self.matType == OPAQUE:
-                    lightColor = [lightColor[i] + light.GetLightColor(intercept)[i] for i in range(3)]
+                lightColor = [lightColor[i] + light.GetLightColor(intercept)[i] for i in range(3)]
 
         if self.matType == REFLECTIVE:
             rayDir = mul(intercept.rayDirection, -1)
@@ -52,6 +74,9 @@ class Material(object):
                 reflectColor = reflectIntercept.obj.material.GetSurfaceColor(reflectIntercept, renderer, recursion + 1)
             else:
                 reflectColor = renderer.glEnvMapColor(intercept.point, reflect)
+                if reflectColor is None:
+                    reflectColor = [0, 0, 0]
+            finalColor = [finalColor[i] + reflectColor[i] * self.ks for i in range(3)]
 
         elif self.matType == TRANSPARENT:
             outside = dot(intercept.normal, intercept.rayDirection) < 0
@@ -65,8 +90,9 @@ class Material(object):
                 reflectColor = reflectIntercept.obj.material.GetSurfaceColor(reflectIntercept, renderer, recursion + 1)
             else:
                 reflectColor = renderer.glEnvMapColor(intercept.point, reflect)
+                if reflectColor is None:
+                    reflectColor = [0, 0, 0]
 
-            # Calculamos la refracción
             refract = refractVector(intercept.normal, intercept.rayDirection, 1.0, self.ior)
 
             if refract is None:
@@ -82,11 +108,17 @@ class Material(object):
                     refractColor = refractIntercept.obj.material.GetSurfaceColor(refractIntercept, renderer, recursion + 1)
                 else:
                     refractColor = renderer.glEnvMapColor(intercept.point, refract)
+                    if refractColor is None:
+                        refractColor = [0, 0, 0]
 
                 kr, kt = fresnel(intercept.normal, intercept.rayDirection, 1.0, self.ior)
                 reflectColor = [i * kr for i in reflectColor]
                 refractColor = [i * kt for i in refractColor]
 
-        finalColor = [finalColor[i] * (lightColor[i] + reflectColor[i] + refractColor[i]) for i in range(3)]
+            finalColor = [finalColor[i] + reflectColor[i] * self.ks + refractColor[i] * self.ks for i in range(3)]
+        else:
+            # Material OPAQUE
+            finalColor = [finalColor[i] * lightColor[i] for i in range(3)]
+
         finalColor = [min(1, finalColor[i]) for i in range(3)]
         return finalColor
