@@ -1,25 +1,25 @@
-import numpy as np
+from MathLib import dot, mul, sub, norm
 from math import acos, asin, pi
 
-def refractVector(normal, incident, n1, n2):
+def refractVector(normal, incident, iorFrom, iorTo):
     # Snell's Law
-    c1 = np.dot(normal, incident)
+    n = iorFrom / iorTo
+    c1 = -dot(normal, incident)
+    under_sqrt = 1 - n**2 * (1 - c1**2)
+    if under_sqrt < 0:
+        # Ocurre Reflexión Interna Total
+        return None
+    sqrt_term = under_sqrt ** 0.5
 
-    if c1 < 0:
-        c1 = -c1
-    else:
-        normal = np.array(normal) * -1
-        n1, n2 = n2, n1
-
-        n = n1 / n2
-
-        T = n * (incident + c1 * normal) - normal * (1 - n**2 * (1 - c1**2 )) ** 0.5
-
-        return T / np.linalg.norm(T)
+    temp = sub(incident, mul(normal, c1))
+    T = mul(temp, n)
+    T = sub(T, mul(normal, sqrt_term))
+    T = norm(T)
+    return T
 
 
 def totalInternalReflection(normal, incident, n1, n2):
-    c1 = np.dot(normal, incident)
+    c1 = dot(normal, incident)
     if c1 < 0:
         c1 = -c1
     else:
@@ -34,19 +34,21 @@ def totalInternalReflection(normal, incident, n1, n2):
     return theta1 >= thetaC
 
 
-def fresnel(normal, incident, n1, n2):
-    c1 = np.dot(normal, incident)
-    if c1 < 0:
-        c1 = -c1
+def fresnel(normal, incident, iorFrom, iorTo):
+    cosi = max(-1, min(1, dot(incident, normal)))
+    etai = iorFrom
+    etat = iorTo
+    if cosi > 0:
+        etai, etat = etat, etai
+    sint = etai / etat * (max(0, 1 - cosi ** 2)) ** 0.5
+    if sint >= 1:
+        # Reflexión Interna Total
+        kr = 1
     else:
-        n1, n2 = n2, n1
-
-    s2 = (n1 * (1 - c1**2)**0.5) / n2
-    c2 = (1 - s2 ** 2) ** 0.5
-
-    F1 = (((n2 * c1) - (n1 * c2)) / ((n2 * c1) + (n1 * c2))) ** 2
-    F2 = (((n1 * c2) - (n2 * c1)) / ((n1 * c2) + (n2 * c1))) ** 2
-
-    Kr = (F1 + F2) / 2
-    Kt = 1 - Kr
-    return Kr, Kt
+        cost = (max(0, 1 - sint ** 2)) ** 0.5
+        cosi = abs(cosi)
+        Rs = ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost))
+        Rp = ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost))
+        kr = (Rs ** 2 + Rp ** 2) / 2
+    kt = 1 - kr
+    return kr, kt
