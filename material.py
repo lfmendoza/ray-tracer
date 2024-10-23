@@ -17,7 +17,7 @@ class Material(object):
 
     def GetSurfaceColor(self, intercept, renderer, recursion=0):
         if self.matType == EMISSIVE:
-            # Los materiales emisivos devuelven su color difuso sin afectación de luces
+            # Emissive materials return their diffuse color unaffected by lights
             return self.diffuse
 
         lightColor = [0, 0, 0]
@@ -35,33 +35,16 @@ class Material(object):
 
             if light.lightType == "Directional":
                 lightDir = mul(light.direction, -1)
-                shadowIntercept = renderer.glCastRay(intercept.point, lightDir, intercept.obj)
-            elif light.lightType == "Point":
+                shadowIntercept = renderer.glCastRay(add(intercept.point, mul(intercept.normal, 0.001)), lightDir, intercept.obj)
+            elif light.lightType == "Point" or light.lightType == "Spot":
                 lightDir = sub(light.position, intercept.point)
                 R = length(lightDir)
                 lightDir = div(lightDir, R)
-                shadowIntercept = renderer.glCastRay(intercept.point, lightDir, intercept.obj)
-                if shadowIntercept and shadowIntercept.distance >= R:
-                    shadowIntercept = None
+                shadowIntercept = renderer.glCastRay(add(intercept.point, mul(intercept.normal, 0.001)), lightDir, intercept.obj)
+                if shadowIntercept and shadowIntercept.distance < R:
+                    continue  # In shadow
             elif light.lightType == "Ambient":
-                pass  # La luz ambiental no crea sombras
-            elif light.lightType == "Spot":
-                lightDir = sub(light.position, intercept.point)
-                R = length(lightDir)
-                lightDir = div(lightDir, R)
-                theta = acos(dot(lightDir, mul(light.direction, -1))) * (180 / pi)
-                if theta < light.innerAngle:
-                    intensity = light.intensity
-                elif theta < light.outerAngle:
-                    intensity = light.intensity * (1 - (theta - light.innerAngle) / (light.outerAngle - light.innerAngle))
-                else:
-                    intensity = 0
-                if intensity > 0:
-                    shadowIntercept = renderer.glCastRay(intercept.point, lightDir, intercept.obj)
-                    if shadowIntercept and shadowIntercept.distance >= R:
-                        shadowIntercept = None
-                else:
-                    continue
+                pass  # Ambient light does not cast shadows
 
             if shadowIntercept is None:
                 lightColor = [lightColor[i] + light.GetLightColor(intercept)[i] for i in range(3)]
@@ -69,7 +52,7 @@ class Material(object):
         if self.matType == REFLECTIVE:
             rayDir = mul(intercept.rayDirection, -1)
             reflect = reflectVector(intercept.normal, rayDir)
-            reflectIntercept = renderer.glCastRay(intercept.point, reflect, intercept.obj, recursion + 1)
+            reflectIntercept = renderer.glCastRay(add(intercept.point, mul(intercept.normal, 0.001)), reflect, intercept.obj, recursion + 1)
             if reflectIntercept:
                 reflectColor = reflectIntercept.obj.material.GetSurfaceColor(reflectIntercept, renderer, recursion + 1)
             else:
@@ -96,7 +79,7 @@ class Material(object):
             refract = refractVector(intercept.normal, intercept.rayDirection, 1.0, self.ior)
 
             if refract is None:
-                # Ocurre reflexión interna total
+                # Total Internal Reflection
                 kr = 1.0
                 kt = 0.0
                 refractColor = [0, 0, 0]
@@ -117,8 +100,9 @@ class Material(object):
 
             finalColor = [finalColor[i] + reflectColor[i] * self.ks + refractColor[i] * self.ks for i in range(3)]
         else:
-            # Material OPAQUE
+            # Opaque material
             finalColor = [finalColor[i] * lightColor[i] for i in range(3)]
 
-        finalColor = [min(1, finalColor[i]) for i in range(3)]
+        # Clamp color values to [0, 1]
+        finalColor = [min(1, max(0, finalColor[i])) for i in range(3)]
         return finalColor

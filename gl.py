@@ -1,7 +1,8 @@
 import struct
 from camera import Camera
 from math import tan, pi, atan2, acos
-from MathLib import dot, sub, add, mul, norm, length
+from MathLib import dot, sub, add, mul, norm, length, transform
+from model import Model
 import pygame
 import random
 
@@ -36,6 +37,7 @@ class RendererRT(object):
         self.lights = []
 
         self.envMap = None
+        self.clearColor = [0, 0, 0]
 
     def glViewport(self, x, y, width, height):
         self.vpX = int(x)
@@ -140,22 +142,27 @@ class RendererRT(object):
 
         for obj in self.scene:
             if obj != sceneObj:
-                intercept = obj.ray_intersect(orig, direction)
-                if intercept is not None:
-                    if intercept.distance < depth:
+                # Check if obj is a Model
+                if isinstance(obj, Model):
+                    for face in obj.get_faces():
+                        intercept = face.ray_intersect(orig, direction)
+                        if intercept is not None and intercept.distance < depth:
+                            hit = intercept
+                            depth = intercept.distance
+                else:
+                    intercept = obj.ray_intersect(orig, direction)
+                    if intercept is not None and intercept.distance < depth:
                         hit = intercept
                         depth = intercept.distance
         return hit
 
     def glRender(self):
         indices = [(i, j) for i in range(self.vpX, self.vpX + self.vpWidth)
-                   for j in range(self.vpY, self.vpY + self.vpHeight)]
+                for j in range(self.vpY, self.vpY + self.vpHeight)]
         random.shuffle(indices)
 
         for x, y in indices:
-            # Coordenadas normalizadas
-            # Que van de -1 a 1
-
+            # Normalized coordinates from -1 to 1
             pX = ((x + 0.5 - self.vpX) / self.vpWidth) * 2 - 1
             pY = ((y + 0.5 - self.vpY) / self.vpHeight) * 2 - 1
 
@@ -163,6 +170,10 @@ class RendererRT(object):
             pY *= self.topEdge
 
             dir = [pX, pY, -self.nearPlane]
+            dir = norm(dir)
+
+            # Transform the direction vector using the camera's view matrix
+            dir = transform(dir, self.camera.GetViewMatrix(), is_point=False)
             dir = norm(dir)
 
             intercept = self.glCastRay(self.camera.translate, dir)

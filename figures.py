@@ -1,6 +1,6 @@
 from intercept import Intercept
 from math import atan2, acos, pi, isclose, sin, cos, sqrt
-from MathLib import cross, dot, sub, add, mul, norm, length
+from MathLib import cross, dot, sub, add, mul, norm, length, matrix_multiply
 
 class Shape(object):
     def __init__(self, position, material):
@@ -25,7 +25,7 @@ class Sphere(Shape):
         if d2 > self.radius * self.radius:
             return None
 
-        thc = (self.radius * self.radius - d2) ** 0.5
+        thc = sqrt(self.radius * self.radius - d2)
         t0 = tca - thc
         t1 = tca + thc
 
@@ -69,6 +69,75 @@ class Plane(Shape):
                          texCoords=None,
                          rayDirection=dir,
                          obj=self)
+
+class Tetrahedron(Shape):
+    def __init__(self, position, size, material):
+        super().__init__(position=position, material=material)
+        self.size = size
+        self.type = "Tetrahedron"
+
+        h = size * sqrt(2 / 3)
+        self.vertices = [
+            add(position, [0, h / sqrt(2), 0]),  # Apex
+            add(position, [-size / 2, -h / (2 * sqrt(2)), size / (2 * sqrt(3))]),
+            add(position, [size / 2, -h / (2 * sqrt(2)), size / (2 * sqrt(3))]),
+            add(position, [0, -h / (2 * sqrt(2)), -size / sqrt(3)])
+        ]
+
+        # Faces (triangles)
+        self.faces = [
+            Triangle(self.vertices[0], self.vertices[1], self.vertices[2], material),
+            Triangle(self.vertices[0], self.vertices[2], self.vertices[3], material),
+            Triangle(self.vertices[0], self.vertices[3], self.vertices[1], material),
+            Triangle(self.vertices[1], self.vertices[3], self.vertices[2], material)
+        ]
+
+    def ray_intersect(self, orig, dir):
+        intercepts = [face.ray_intersect(orig, dir) for face in self.faces]
+        intercepts = [intercept for intercept in intercepts if intercept is not None]
+        if not intercepts:
+            return None
+        intercept = min(intercepts, key=lambda i: i.distance)
+        return intercept
+
+class Prism(Shape):
+    def __init__(self, position, radius, height, sides, material):
+        super().__init__(position=position, material=material)
+        self.radius = radius
+        self.height = height
+        self.sides = sides
+        self.type = "Prism"
+
+        angle = 2 * pi / sides
+        self.vertices_top = []
+        self.vertices_bottom = []
+        for i in range(sides):
+            x = position[0] + radius * cos(i * angle)
+            z = position[2] + radius * sin(i * angle)
+            self.vertices_top.append([x, position[1] + height / 2, z])
+            self.vertices_bottom.append([x, position[1] - height / 2, z])
+
+        # Faces
+        self.faces = []
+        for i in range(sides):
+            next_i = (i + 1) % sides
+            # Side faces
+            self.faces.append(Triangle(self.vertices_bottom[i], self.vertices_top[i], self.vertices_top[next_i], material))
+            self.faces.append(Triangle(self.vertices_bottom[i], self.vertices_top[next_i], self.vertices_bottom[next_i], material))
+        # Top and bottom faces
+        for i in range(1, sides - 1):
+            # Top face
+            self.faces.append(Triangle(self.vertices_top[0], self.vertices_top[i], self.vertices_top[i + 1], material))
+            # Bottom face
+            self.faces.append(Triangle(self.vertices_bottom[0], self.vertices_bottom[i + 1], self.vertices_bottom[i], material))
+
+    def ray_intersect(self, orig, dir):
+        intercepts = [face.ray_intersect(orig, dir) for face in self.faces]
+        intercepts = [intercept for intercept in intercepts if intercept is not None]
+        if not intercepts:
+            return None
+        intercept = min(intercepts, key=lambda i: i.distance)
+        return intercept
 
 class Disc(Plane):
     def __init__(self, position, normal, radio, material):
@@ -416,20 +485,6 @@ class Cylinder(Shape):
         normal = [P[0] - self.position[0], 0, P[2] - self.position[2]]
         normal = norm(normal)
         return Intercept(point=P, normal=normal, distance=t, texCoords=None, rayDirection=dir, obj=self)
-
-class Torus(Shape):
-    def __init__(self, position, major_radius, minor_radius, material):
-        super().__init__(position=position, material=material)
-        self.major_radius = major_radius  # Radio desde el centro hasta el centro del tubo
-        self.minor_radius = minor_radius  # Radio del tubo
-        self.type = "Torus"
-
-    def ray_intersect(self, orig, dir):
-        # El algoritmo de intersección con un toroide es complejo y requiere resolver una ecuación de cuarto grado.
-        # Por simplicidad, usaremos una aproximación numérica o descartaremos su implementación detallada aquí.
-
-        # Placeholder para indicar que no está implementado completamente
-        return None
 
 class Ellipsoid(Shape):
     def __init__(self, position, radii, material):

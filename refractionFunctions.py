@@ -5,9 +5,9 @@ def refractVector(normal, incident, iorFrom, iorTo):
     # Snell's Law
     n = iorFrom / iorTo
     c1 = -dot(normal, incident)
-    under_sqrt = 1 - n**2 * (1 - c1**2)
+    under_sqrt = 1 - n ** 2 * (1 - c1 ** 2)
     if under_sqrt < 0:
-        # Ocurre Reflexión Interna Total
+        # Total Internal Reflection
         return None
     sqrt_term = under_sqrt ** 0.5
 
@@ -33,7 +33,6 @@ def totalInternalReflection(normal, incident, n1, n2):
 
     return theta1 >= thetaC
 
-
 def fresnel(normal, incident, iorFrom, iorTo):
     cosi = max(-1, min(1, dot(incident, normal)))
     etai = iorFrom
@@ -42,7 +41,7 @@ def fresnel(normal, incident, iorFrom, iorTo):
         etai, etat = etat, etai
     sint = etai / etat * (max(0, 1 - cosi ** 2)) ** 0.5
     if sint >= 1:
-        # Reflexión Interna Total
+        # Total Internal Reflection
         kr = 1
     else:
         cost = (max(0, 1 - sint ** 2)) ** 0.5

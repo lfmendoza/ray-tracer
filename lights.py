@@ -126,11 +126,11 @@ class SpotLight(PointLight):
         if intercept is None:
             return 0
 
-        wi = sub(self.position, intercept.point)
+        wi = sub(intercept.point, self.position)
         wi = norm(wi)
         innerAngleRads = self.innerAngle * pi / 180
         outerAngleRads = self.outerAngle * pi / 180
 
-        attenuation = (-dot(self.direction, wi) - cos(outerAngleRads)) / (cos(innerAngleRads) - cos(outerAngleRads))
+        attenuation = (dot(self.direction, wi) - cos(outerAngleRads)) / (cos(innerAngleRads) - cos(outerAngleRads))
         attenuation = min(1, max(0, attenuation))
         return attenuation

@@ -6,6 +6,7 @@ from figures import *
 from material import *
 from lights import *
 from texture import Texture
+from model import Model
 from math import radians
 
 width = 800
@@ -16,89 +17,75 @@ screen = pygame.display.set_mode((width, height), pygame.SCALED)
 clock = pygame.time.Clock()
 
 rt = RendererRT(screen)
-# Cargar el mapa de entorno (si está disponible)
-try:
-    rt.envMap = Texture("textures/parkingLot.bmp")
-except:
-    rt.envMap = None
+# Cargar el mapa de entorno
+rt.envMap = Texture("textures/parkingLot.bmp")
 
-# Definir materiales con colores para emular texturas
-mountain_color = [0.4, 0.3, 0.2]    # Marrón para montañas
-tree_trunk_color = [0.55, 0.27, 0.07]  # Marrón oscuro para troncos
-leaf_color = [0.2, 0.5, 0.2]        # Verde para hojas
-water_color = [0.2, 0.5, 0.7]       # Azul para agua
-sun_color = [1.0, 0.9, 0.7]         # Amarillo suave para el sol
-rock_color = [0.7, 0.7, 0.7]        # Gris claro para rocas
-reflective_color = [0.8, 0.6, 0.2]  # Dorado para materiales reflectivos
-refractive_color = [0.9, 0.9, 1.0]  # Color claro para materiales refractivos
+# Definir materiales con colores y texturas
+grass_texture = Texture("textures/grass.bmp")
+stone_texture = Texture("textures/stone.bmp")
+metal_texture = Texture("textures/metal.bmp")
+wood_texture = Texture("textures/wood.bmp")
 
 # Materiales
-mountain_material = Material(diffuse=mountain_color, spec=32, ks=0.1)
-tree_trunk_material = Material(diffuse=tree_trunk_color, spec=16, ks=0.2)
-leaf_material = Material(diffuse=leaf_color, spec=32, ks=0.3)
-water_material = Material(diffuse=water_color, spec=64, ks=0.5, matType=TRANSPARENT, ior=1.33)
-rock_material_translucent = Material(diffuse=rock_color, spec=32, ks=0.2, matType=TRANSPARENT, ior=1.5)
-sun_material = Material(diffuse=sun_color, spec=0, ks=0.0, matType=EMISSIVE)
-reflective_material = Material(diffuse=reflective_color, spec=128, ks=1.0, matType=REFLECTIVE)
-refractive_material = Material(diffuse=refractive_color, spec=64, ks=0.5, matType=TRANSPARENT, ior=1.5)
+grass_material = Material(spec=32, ks=0.5, texture=grass_texture)
+stone_material = Material(spec=32, ks=0.3, texture=stone_texture)
+metal_material = Material(spec=128, ks=1.0, matType=REFLECTIVE, texture=metal_texture)
+glass_material = Material(spec=64, ks=0.5, matType=TRANSPARENT, ior=1.5)
+wood_material = Material(spec=16, ks=0.2, texture=wood_texture)
+sun_material = Material(diffuse=[1.0, 0.9, 0.7], spec=0, ks=0.0, matType=EMISSIVE)
+water_material = Material(diffuse=[0.2, 0.5, 0.7], spec=64, ks=0.5, matType=TRANSPARENT, ior=1.33)
+leaf_material = Material(diffuse=[0.2, 0.5, 0.7], spec=64, ks=0.5, matType=OPAQUE, ior=1.33)
 
 # Limpiar la escena
 rt.scene = []
 
-# Crear el paisaje
+# Añadir figuras al escenario
 
-# Montañas en el fondo (asegurando orientación correcta)
-# Montaña izquierda (pirámide reflectiva)
-mountain_left = Pyramid(
-    base_center=[-15, -5, -50],
-    base_size=20,
-    height=25,
-    material=reflective_material
-)
-rt.scene.append(mountain_left)
-
-# Montaña derecha (cono refractivo)
-mountain_right = Cone(
-    position=[15, -5, -55],
-    radius=15,
-    height=30,
-    material=refractive_material
-)
-rt.scene.append(mountain_right)
-
-# Montaña central (pirámide reflectiva)
-mountain_center = Pyramid(
-    base_center=[0, -5, -60],
-    base_size=25,
-    height=35,
-    material=reflective_material
-)
-rt.scene.append(mountain_center)
-
-# Río (plano transparente)
-river = Plane(
+# Plano de suelo (con textura de césped)
+ground = Plane(
     position=[0, -5, 0],
+    normal=[0, 1, 0],
+    material=grass_material
+)
+# rt.scene.append(ground)
+
+# Montañas (utilizando la nueva figura Tetrahedron)
+mountain_positions = [
+    [-20, -5, -50],
+    [0, -5, -60],
+    [20, -5, -55]
+]
+for pos in mountain_positions:
+    mountain = Tetrahedron(
+        position=pos,
+        size=20,
+        material=stone_material
+    )
+    rt.scene.append(mountain)
+
+# Lago (plano con material transparente)
+lake = Plane(
+    position=[0, -5, -30],
     normal=[0, 1, 0],
     material=water_material
 )
-rt.scene.append(river)
+rt.scene.append(lake)
 
-# Árboles a lo largo de las orillas
+# Árboles (cilindros y esferas con textura de madera y hojas)
 tree_positions = [
-    [-10, -5, -20],
-    [-12, -5, -30],
-    [-8, -5, -40],
-    [10, -5, -25],
-    [12, -5, -35],
-    [8, -5, -45]
+    [-15, -5, -20],
+    [-10, -5, -25],
+    [-5, -5, -22],
+    [5, -5, -18],
+    [10, -5, -28],
+    [15, -5, -24]
 ]
-
 for pos in tree_positions:
     trunk = Cylinder(
-        position=[pos[0], pos[1], pos[2]],
+        position=pos,
         radius=0.5,
         height=5,
-        material=tree_trunk_material
+        material=wood_material
     )
     rt.scene.append(trunk)
 
@@ -109,81 +96,55 @@ for pos in tree_positions:
     )
     rt.scene.append(leaves)
 
-# Rocas translúcidas
+# Rocas translúcidas (usando la nueva figura Prism)
 rock_positions = [
-    [-5, -5.5, -15],
-    [0, -5.5, -25],
-    [5, -5.5, -35]
+    [-5, -5, -15],
+    [0, -5, -25],
+    [5, -5, -35]
 ]
-
 for pos in rock_positions:
-    rock = Ellipsoid(
+    rock = Prism(
         position=pos,
-        radii=[2, 1.5, 1],
-        material=rock_material_translucent
+        radius=2,
+        height=3,
+        sides=6,  # Hexagonal prism
+        material=glass_material
     )
     rt.scene.append(rock)
 
-# Figuras adicionales con materiales reflectivos y refractivos
-
-# Esfera refractiva (gema)
-gem = Sphere(
-    position=[-3, -4, -20],
-    radius=1.5,
-    material=refractive_material
-)
-rt.scene.append(gem)
-
-# Esfera reflectiva (esfera metálica)
+# Esfera reflectiva (usando material con textura de metal)
 metal_sphere = Sphere(
-    position=[3, -4, -22],
-    radius=1.5,
-    material=reflective_material
+    position=[0, -4, -20],
+    radius=2,
+    material=metal_material
 )
 rt.scene.append(metal_sphere)
 
-# Cono reflectivo (árbol estilizado)
-stylized_tree = Cone(
-    position=[-7, -5, -18],
-    radius=2,
-    height=6,
-    material=reflective_material
-)
-rt.scene.append(stylized_tree)
+# Modelo OBJ (colocamos un modelo en la escena)
+# LFMendoza
+# model = Model("models/face.obj")
+# model_material = Material(spec=64, ks=0.5, texture=stone_texture)
+# model.position = [0, -5, -30]
+# model.scale = [0.5, 0.5, 0.5]
+# model.material = model_material
+# rt.scene.append(model)
 
-# Pirámide refractiva (cristal)
-crystal_pyramid = Pyramid(
-    base_center=[7, -5, -26],
-    base_size=4,
-    height=6,
-    material=refractive_material
-)
-rt.scene.append(crystal_pyramid)
-
-# Sol naciente
+# Sol (emisivo)
 sun = Sphere(
-    position=[0, 10, -100],
-    radius=8,
+    position=[0, 20, -100],
+    radius=10,
     material=sun_material
 )
 rt.scene.append(sun)
 
 # Agregar luces
-# Luz ambiental con tono cálido
-rt.lights.append(AmbientLight(intensity=0.3, color=[1.0, 0.8, 0.6]))
+rt.lights.append(AmbientLight(intensity=0.2, color=[1.0, 1.0, 1.0]))
+rt.lights.append(DirectionalLight(direction=[0, -1, 1], intensity=0.8, color=[1.0, 0.95, 0.9]))
+rt.lights.append(PointLight(position=[0, 20, -100], intensity=1.0, color=[1.0, 0.9, 0.7]))
 
-# Luz direccional simulando el sol naciente
-rt.lights.append(DirectionalLight(direction=[0, -1, 1], intensity=0.8, color=[1.0, 0.9, 0.7]))
-
-# Luz puntual en el sol
-rt.lights.append(PointLight(position=[0, 10, -100], intensity=1.0, color=[1.0, 0.9, 0.7]))
-
-# Luces adicionales con distintos colores y matices
-rt.lights.append(PointLight(position=[-10, 0, -20], intensity=0.5, color=[0.8, 0.6, 1.0]))  # Luz violeta
-rt.lights.append(PointLight(position=[10, 0, -25], intensity=0.5, color=[0.6, 1.0, 0.8]))   # Luz verde
-rt.lights.append(PointLight(position=[0, -2, -30], intensity=0.5, color=[1.0, 0.5, 0.5]))   # Luz roja
-rt.lights.append(PointLight(position=[-5, 5, -20], intensity=0.7, color=[0.5, 0.5, 1.0]))   # Luz azul
-rt.lights.append(PointLight(position=[5, 5, -20], intensity=0.7, color=[1.0, 1.0, 0.5]))    # Luz amarilla
+# Luces adicionales
+rt.lights.append(SpotLight(position=[-10, 0, -20], direction=[1, -1, 0], intensity=0.5, color=[0.8, 0.6, 1.0], innerAngle=30, outerAngle=45))
+rt.lights.append(SpotLight(position=[10, 0, -25], direction=[-1, -1, 0], intensity=0.5, color=[0.6, 1.0, 0.8], innerAngle=30, outerAngle=45))
 
 # Renderizar la escena
 rt.glRender()

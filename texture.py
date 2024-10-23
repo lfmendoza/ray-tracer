@@ -1,42 +1,34 @@
-
 import struct
 
 class Texture(object):
-	def __init__(self, filename):
+    def __init__(self, filename):
+        with open(filename, "rb") as image:
+            image.seek(10)
+            headerSize = struct.unpack('=l', image.read(4))[0]
 
-		with open(filename, "rb") as image:
-			image.seek(10)
-			headerSize = struct.unpack('=l', image.read(4))[0]
+            image.seek(18)
+            self.width = struct.unpack('=l', image.read(4))[0]
+            self.height = struct.unpack('=l', image.read(4))[0]
 
-			image.seek(18)
-			self.width = struct.unpack('=l', image.read(4))[0]
-			self.height = struct.unpack('=l', image.read(4))[0]
+            image.seek(headerSize)
 
-			image.seek(headerSize)
+            self.pixels = []
 
-			self.pixels = []
+            for y in range(self.height):
+                pixelRow = []
 
-			for y in range(self.height):
-				pixelRow = []
+                for x in range(self.width):
+                    b = ord(image.read(1)) / 255
+                    g = ord(image.read(1)) / 255
+                    r = ord(image.read(1)) / 255
+                    pixelRow.append([r, g, b])
 
-				for x in range(self.width):
-					b = ord(image.read(1)) / 255
-					g = ord(image.read(1)) / 255
-					r = ord(image.read(1)) / 255
-					pixelRow.append([r,g,b])
+                self.pixels.append(pixelRow)
 
-				self.pixels.append(pixelRow)
-
-	def getColor(self, u, v):
-		if 0 <= u < 1 and 0 <= v < 1:
-			return self.pixels[int(v * self.height)][int(u * self.width)]
-		else:
-			return None
-
-
-
-
-
-
-
-
+    def getColor(self, u, v):
+        if 0 <= u < 1 and 0 <= v < 1:
+            x = int(u * (self.width - 1))
+            y = int((1 - v) * (self.height - 1))  # Invert v to match image coordinate system
+            return self.pixels[y][x]
+        else:
+            return [0, 0, 0]
