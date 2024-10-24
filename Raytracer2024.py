@@ -1,157 +1,107 @@
 import pygame
 from pygame.locals import *
 from gl import RendererRT
-
 from figures import *
 from material import *
 from lights import *
 from texture import Texture
 from model import Model
-from math import radians
 
-width = 800
-height = 600
+width = 1024
+height = 768
 
 pygame.init()
 screen = pygame.display.set_mode((width, height), pygame.SCALED)
 clock = pygame.time.Clock()
 
 rt = RendererRT(screen)
-# Cargar el mapa de entorno
-rt.envMap = Texture("textures/parkingLot.bmp")
 
-# Definir materiales con colores y texturas
-grass_texture = Texture("textures/grass.bmp")
-stone_texture = Texture("textures/stone.bmp")
-metal_texture = Texture("textures/metal.bmp")
-wood_texture = Texture("textures/wood.bmp")
+# Fondo del bosque
+try:
+    rt.envMap = Texture("textures/woods_background.bmp")
+except:
+    rt.envMap = None
 
 # Materiales
-grass_material = Material(spec=32, ks=0.5, texture=grass_texture)
-stone_material = Material(spec=32, ks=0.3, texture=stone_texture)
-metal_material = Material(spec=128, ks=1.0, matType=REFLECTIVE, texture=metal_texture)
-glass_material = Material(spec=64, ks=0.5, matType=TRANSPARENT, ior=1.5)
-wood_material = Material(spec=16, ks=0.2, texture=wood_texture)
-sun_material = Material(diffuse=[1.0, 0.9, 0.7], spec=0, ks=0.0, matType=EMISSIVE)
-water_material = Material(diffuse=[0.2, 0.5, 0.7], spec=64, ks=0.5, matType=TRANSPARENT, ior=1.33)
-leaf_material = Material(diffuse=[0.2, 0.5, 0.7], spec=64, ks=0.5, matType=OPAQUE, ior=1.33)
+tree_trunk_material = Material(diffuse=[0.55, 0.27, 0.07], spec=16, ks=0.3)
+leaf_material = Material(diffuse=[0.2, 0.6, 0.2], spec=32, ks=0.4)  # Ajuste de especularidad para brillar bajo el sol
+tent_material = Material(diffuse=[0.7, 0.2, 0.2], spec=64, ks=0.5)
+firewood_material = Material(diffuse=[0.5, 0.3, 0.2], spec=32, ks=0.1)
+fire_material = Material(diffuse=[1.0, 0.5, 0.1], spec=0, ks=0.1, matType=EMISSIVE)
 
-# Limpiar la escena
-rt.scene = []
+# Suelo del bosque
+ground_material = Material(diffuse=[0.3, 0.25, 0.2], spec=32, ks=0.1)
+ground = Plane(position=[0, -5, -20], normal=[0, 1, 0], material=ground_material)
 
-# Añadir figuras al escenario
+rt.scene.append(ground)
 
-# Plano de suelo (con textura de césped)
-ground = Plane(
-    position=[0, -5, 0],
-    normal=[0, 1, 0],
-    material=grass_material
-)
-# rt.scene.append(ground)
-
-# Montañas (utilizando la nueva figura Tetrahedron)
-mountain_positions = [
-    [-20, -5, -50],
-    [0, -5, -60],
-    [20, -5, -55]
-]
-for pos in mountain_positions:
-    mountain = Tetrahedron(
-        position=pos,
-        size=20,
-        material=stone_material
-    )
-    rt.scene.append(mountain)
-
-# Lago (plano con material transparente)
-lake = Plane(
-    position=[0, -5, -30],
-    normal=[0, 1, 0],
-    material=water_material
-)
-rt.scene.append(lake)
-
-# Árboles (cilindros y esferas con textura de madera y hojas)
+# Posiciones de árboles: mezcla de árboles más cercanos y lejanos
 tree_positions = [
-    [-15, -5, -20],
-    [-10, -5, -25],
-    [-5, -5, -22],
-    [5, -5, -18],
-    [10, -5, -28],
-    [15, -5, -24]
+    [-20, -5, -40], [-15, -5, -30], [-10, -5, -25], [-18, -5, -35],
+    [15, -5, -40], [12, -5, -25], [18, -5, -32], [20, -5, -50],
+    [-12, -5, -15], [10, -5, -10], [5, -5, -22], [8, -5, -35]
 ]
-for pos in tree_positions:
-    trunk = Cylinder(
-        position=pos,
-        radius=0.5,
-        height=5,
-        material=wood_material
-    )
-    rt.scene.append(trunk)
 
-    leaves = Sphere(
-        position=[pos[0], pos[1] + 6, pos[2]],
-        radius=2,
-        material=leaf_material
-    )
+# Crear árboles (pinos y follajes variados)
+for i, pos in enumerate(tree_positions):
+    height = 8 if i % 2 == 0 else 10  # Alternar entre árboles más altos y más bajos
+    trunk = Cylinder(position=[pos[0], pos[1], pos[2]], radius=1.0, height=height, material=tree_trunk_material)
+    leaves_radius = 3 if i % 2 == 0 else 4
+    leaves = Sphere(position=[pos[0], pos[1] + height, pos[2]], radius=leaves_radius, material=leaf_material)
+    rt.scene.append(trunk)
     rt.scene.append(leaves)
 
-# Rocas translúcidas (usando la nueva figura Prism)
-rock_positions = [
-    [-5, -5, -15],
-    [0, -5, -25],
-    [5, -5, -35]
+# Tienda de acampar en perspectiva (ajustada para recibir rayos de luz)
+tent = Pyramid(base_center=[0, -5, -15], base_size=6, height=5, material=tent_material)
+rt.scene.append(tent)
+
+# Fogata (troncos y fuego)
+firewood_positions = [
+    [-1, -5, -12], [1, -5, -12], [0, -5, -13],
+    [0, -5, -11], [-1.5, -5, -11.5], [1.5, -5, -11.5]
 ]
-for pos in rock_positions:
-    rock = Prism(
-        position=pos,
-        radius=2,
-        height=3,
-        sides=6,  # Hexagonal prism
-        material=glass_material
-    )
-    rt.scene.append(rock)
 
-# Esfera reflectiva (usando material con textura de metal)
-metal_sphere = Sphere(
-    position=[0, -4, -20],
-    radius=2,
-    material=metal_material
-)
-rt.scene.append(metal_sphere)
+for pos in firewood_positions:
+    firewood = Cylinder(position=[pos[0], pos[1], pos[2]], radius=0.2, height=2, material=firewood_material)
+    rt.scene.append(firewood)
 
-# Modelo OBJ (colocamos un modelo en la escena)
-# LFMendoza
-# model = Model("models/face.obj")
-# model_material = Material(spec=64, ks=0.5, texture=stone_texture)
-# model.position = [0, -5, -30]
-# model.scale = [0.5, 0.5, 0.5]
-# model.material = model_material
-# rt.scene.append(model)
+fire = Sphere(position=[0, -3, -12], radius=0.5, material=fire_material)
+rt.scene.append(fire)
 
-# Sol (emisivo)
-sun = Sphere(
-    position=[0, 20, -100],
-    radius=10,
-    material=sun_material
-)
-rt.scene.append(sun)
+# Banana OBJ
+# banana_model = Model("models/banana.obj")
+# banana_model.translate = [5, -4, -20]
+# banana_model.scale = [0.5, 0.5, 0.5]
+# banana_model.material = Material(diffuse=[1.0, 0.9, 0.0], spec=64, ks=0.3)
+# rt.scene.append(banana_model)
 
-# Agregar luces
-rt.lights.append(AmbientLight(intensity=0.2, color=[1.0, 1.0, 1.0]))
-rt.lights.append(DirectionalLight(direction=[0, -1, 1], intensity=0.8, color=[1.0, 0.95, 0.9]))
-rt.lights.append(PointLight(position=[0, 20, -100], intensity=1.0, color=[1.0, 0.9, 0.7]))
+# Iluminación: luz solar, luces puntuales y rayos de luz
+rt.lights.append(DirectionalLight(direction=[-1, -1, 1], intensity=0.9, color=[1.0, 0.9, 0.7]))  # Luz cálida del sol
+rt.lights.append(AmbientLight(intensity=0.2, color=[0.7, 0.8, 1.0]))  # Luz ambiental azulada
 
-# Luces adicionales
-rt.lights.append(SpotLight(position=[-10, 0, -20], direction=[1, -1, 0], intensity=0.5, color=[0.8, 0.6, 1.0], innerAngle=30, outerAngle=45))
-rt.lights.append(SpotLight(position=[10, 0, -25], direction=[-1, -1, 0], intensity=0.5, color=[0.6, 1.0, 0.8], innerAngle=30, outerAngle=45))
+# Rayos de luz (SpotLights) para emular el sol atravesando los árboles
+sunlight_angles = [
+    SpotLight(position=[-10, 20, -30], direction=[0, -1, 0.3], intensity=1.5, innerAngle=15, outerAngle=30, color=[1.0, 0.7, 0.4]),  # Luz cálida
+    SpotLight(position=[10, 20, -35], direction=[0, -1, 0.3], intensity=1.2, innerAngle=10, outerAngle=25, color=[1.0, 0.6, 0.3])  # Luz de atardecer
+]
+
+for light in sunlight_angles:
+    rt.lights.append(light)
+
+# Luz para la fogata
+rt.lights.append(PointLight(position=[0, -3, -12], intensity=1.2, color=[1.0, 0.5, 0.3]))
+
+# Agregar luces adicionales con diferentes colores
+rt.lights.append(PointLight(position=[-15, 5, -30], intensity=0.8, color=[0.8, 0.7, 1.0]))  # Luz violeta
+rt.lights.append(PointLight(position=[10, 5, -20], intensity=0.8, color=[0.6, 0.9, 0.8]))   # Luz verdosa
+rt.lights.append(PointLight(position=[5, 5, -22], intensity=0.6, color=[1.0, 0.5, 0.5]))   # Luz rojiza
+rt.lights.append(PointLight(position=[-5, 5, -15], intensity=0.6, color=[0.5, 0.5, 1.0]))  # Luz azulada
 
 # Renderizar la escena
 rt.glRender()
 
 isRunning = True
 while isRunning:
-
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             isRunning = False
@@ -163,5 +113,4 @@ while isRunning:
     clock.tick(60)
 
 rt.glGenerateFrameBuffer('output.bmp')
-
 pygame.quit()

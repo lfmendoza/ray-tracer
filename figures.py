@@ -10,7 +10,6 @@ class Shape(object):
 
     def ray_intersect(self, orig, dir):
         return None
-
 class Sphere(Shape):
     def __init__(self, position, radius, material):
         super().__init__(position, material)
@@ -43,7 +42,6 @@ class Sphere(Shape):
         v = acos(normal[1]) / pi
 
         return Intercept(point=P, normal=normal, distance=t0, texCoords=[u, v], rayDirection=dir, obj=self)
-
 class Plane(Shape):
     def __init__(self, position, normal, material):
         super().__init__(position=position, material=material)
@@ -69,7 +67,6 @@ class Plane(Shape):
                          texCoords=None,
                          rayDirection=dir,
                          obj=self)
-
 class Tetrahedron(Shape):
     def __init__(self, position, size, material):
         super().__init__(position=position, material=material)
@@ -99,66 +96,79 @@ class Tetrahedron(Shape):
             return None
         intercept = min(intercepts, key=lambda i: i.distance)
         return intercept
-
 class Prism(Shape):
-    def __init__(self, position, radius, height, sides, material):
+    def __init__(self, position, radius, height, sides, rotation, material):
         super().__init__(position=position, material=material)
         self.radius = radius
         self.height = height
         self.sides = sides
+        self.rotation = rotation  # En radianes
         self.type = "Prism"
 
         angle = 2 * pi / sides
         self.vertices_top = []
         self.vertices_bottom = []
         for i in range(sides):
-            x = position[0] + radius * cos(i * angle)
-            z = position[2] + radius * sin(i * angle)
-            self.vertices_top.append([x, position[1] + height / 2, z])
-            self.vertices_bottom.append([x, position[1] - height / 2, z])
+            x = self.radius * cos(i * angle + self.rotation)
+            z = self.radius * sin(i * angle + self.rotation)
+            self.vertices_top.append([x, self.height / 2, z])
+            self.vertices_bottom.append([x, -self.height / 2, z])
 
-        # Faces
+        # Transformar vértices a la posición del prisma
+        self.vertices_top = [add(self.position, v) for v in self.vertices_top]
+        self.vertices_bottom = [add(self.position, v) for v in self.vertices_bottom]
+
+        # Crear las caras
         self.faces = []
         for i in range(sides):
             next_i = (i + 1) % sides
-            # Side faces
-            self.faces.append(Triangle(self.vertices_bottom[i], self.vertices_top[i], self.vertices_top[next_i], material))
-            self.faces.append(Triangle(self.vertices_bottom[i], self.vertices_top[next_i], self.vertices_bottom[next_i], material))
-        # Top and bottom faces
+            # Caras laterales
+            self.faces.append(Triangle(self.vertices_bottom[i], self.vertices_top[i], self.vertices_top[next_i], self.material))
+            self.faces.append(Triangle(self.vertices_bottom[i], self.vertices_top[next_i], self.vertices_bottom[next_i], self.material))
+        # Caras superior e inferior
         for i in range(1, sides - 1):
-            # Top face
-            self.faces.append(Triangle(self.vertices_top[0], self.vertices_top[i], self.vertices_top[i + 1], material))
-            # Bottom face
-            self.faces.append(Triangle(self.vertices_bottom[0], self.vertices_bottom[i + 1], self.vertices_bottom[i], material))
+            # Cara superior
+            self.faces.append(Triangle(self.vertices_top[0], self.vertices_top[i], self.vertices_top[i + 1], self.material))
+            # Cara inferior
+            self.faces.append(Triangle(self.vertices_bottom[0], self.vertices_bottom[i + 1], self.vertices_bottom[i], self.material))
 
     def ray_intersect(self, orig, dir):
         intercepts = [face.ray_intersect(orig, dir) for face in self.faces]
-        intercepts = [intercept for intercept in intercepts if intercept is not None]
+        intercepts = [i for i in intercepts if i is not None]
         if not intercepts:
             return None
         intercept = min(intercepts, key=lambda i: i.distance)
         return intercept
-
-class Disc(Plane):
-    def __init__(self, position, normal, radio, material):
-        super().__init__(position=position, normal=normal, material=material)
-        self.radio = radio
+class Disc(Shape):
+    def __init__(self, position, normal, radius, material):
+        super().__init__(position=position, material=material)
+        self.normal = norm(normal)
+        self.radius = radius
         self.type = "Disc"
 
     def ray_intersect(self, orig, dir):
-        planeIntercept = super().ray_intersect(orig, dir)
-
-        if planeIntercept is None:
+        # Primero, verificamos la intersección con el plano en el que se encuentra el disco
+        denom = dot(dir, self.normal)
+        if abs(denom) < 1e-6:
+            # El rayo es paralelo al plano
             return None
 
-        contact = sub(planeIntercept.point, self.position)
-        contact_length = length(contact)
-
-        if contact_length > self.radio:
+        t = dot(sub(self.position, orig), self.normal) / denom
+        if t < 0:
+            # La intersección está detrás del origen del rayo
             return None
 
-        return planeIntercept
+        P = add(orig, mul(dir, t))
+        dist = sqrt(sum([(P[i] - self.position[i]) ** 2 for i in range(3)]))
+        if dist > self.radius:
+            # El punto de intersección está fuera del disco
+            return None
 
+        # Calculamos las coordenadas de textura (u, v) si es necesario
+        u = (P[0] - self.position[0]) / (2 * self.radius) + 0.5
+        v = (P[2] - self.position[2]) / (2 * self.radius) + 0.5
+
+        return Intercept(point=P, normal=self.normal, distance=t, texCoords=[u, v], rayDirection=dir, obj=self)
 class AABB(Shape):
     # Axis-Aligned Bounding Box
 
@@ -234,7 +244,6 @@ class AABB(Shape):
                          texCoords=[u, v],
                          rayDirection=dir,
                          obj=self)
-
 class Triangle(Shape):
     def __init__(self, v0, v1, v2, material):
         super().__init__(position=None, material=material)
@@ -272,7 +281,6 @@ class Triangle(Shape):
             return Intercept(point=P, normal=self.normal, distance=t, texCoords=None, rayDirection=dir, obj=self)
         else:
             return None
-
 class Pyramid(Shape):
     def __init__(self, base_center, base_size, height, material):
         super().__init__(position=base_center, material=material)
@@ -306,7 +314,6 @@ class Pyramid(Shape):
             return None
         intercept = min(intercepts, key=lambda i: i.distance)
         return intercept
-
 class Cone(Shape):
     def __init__(self, position, radius, height, material):
         super().__init__(position=position, material=material)
@@ -348,7 +355,6 @@ class Cone(Shape):
         normal = [P[0] - self.position[0], k * (P[1] - self.position[1]), P[2] - self.position[2]]
         normal = norm(normal)
         return Intercept(point=P, normal=normal, distance=t, texCoords=None, rayDirection=dir, obj=self)
-
 class OBB(Shape):
     # Oriented Bounding Box
     def __init__(self, position, sizes, rotation, material):
@@ -448,7 +454,6 @@ class OBB(Shape):
         normal_world = norm(self.transform_point(normal_local, self.rotation_matrix))
 
         return Intercept(point=P_world, normal=normal_world, distance=t, texCoords=None, rayDirection=dir, obj=self)
-
 class Cylinder(Shape):
     def __init__(self, position, radius, height, material):
         super().__init__(position=position, material=material)
@@ -485,8 +490,41 @@ class Cylinder(Shape):
         normal = [P[0] - self.position[0], 0, P[2] - self.position[2]]
         normal = norm(normal)
         return Intercept(point=P, normal=normal, distance=t, texCoords=None, rayDirection=dir, obj=self)
-
 class Ellipsoid(Shape):
+    def __init__(self, position, radii, material):
+        super().__init__(position=position, material=material)
+        self.radii = radii  # [rx, ry, rz]
+        self.type = "Ellipsoid"
+
+    def ray_intersect(self, orig, dir):
+        # Ecuación del elipsoide: (x/a)^2 + (y/b)^2 + (z/c)^2 = 1
+        co = sub(orig, self.position)
+        co = [co[i] / self.radii[i] for i in range(3)]
+        dir = [dir[i] / self.radii[i] for i in range(3)]
+
+        a = dot(dir, dir)
+        b = 2 * dot(co, dir)
+        c = dot(co, co) - 1
+
+        disc = b * b - 4 * a * c
+        if disc < 0:
+            return None
+
+        sqrt_disc = sqrt(disc)
+        t0 = (-b - sqrt_disc) / (2 * a)
+        t1 = (-b + sqrt_disc) / (2 * a)
+
+        t = min(t0, t1)
+        if t < 0:
+            t = max(t0, t1)
+            if t < 0:
+                return None
+
+        P = add(orig, mul(dir, t))
+        normal = [2 * (P[i] - self.position[i]) / (self.radii[i] ** 2) for i in range(3)]
+        normal = norm(normal)
+        return Intercept(point=P, normal=normal, distance=t, texCoords=None, rayDirection=dir, obj=self)
+
     def __init__(self, position, radii, material):
         super().__init__(position=position, material=material)
         self.radii = radii  # [rx, ry, rz]
